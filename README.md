@@ -29,20 +29,40 @@ Unlike traditional linters or code analyzers, Detective:
 ## Installation
 
 ### Prerequisites
-- Go 1.21 or higher
+- Go 1.21 or higher ([download here](https://golang.org/dl/))
 
-### Build from source
+### Quick Install (Recommended)
+
+**Windows:**
+1. Clone or download this repository
+2. Open the folder in File Explorer
+3. Double-click `install.bat`
+4. Follow the prompts
+5. Open a **new** terminal and run `detective -verbose`
+
+**macOS/Linux:**
+```bash
+go install github.com/geoffkats/detective-cli/cmd/detective@latest
+```
+
+Then add `~/go/bin` to your PATH if not already there.
+
+### Manual Build
 ```bash
 cd detective-case
 go mod download
-go build -o bin/detective.exe ./cmd/detective
+go install ./cmd/detective
 ```
+
+Then add `$USERPROFILE\go\bin` (Windows) or `~/go/bin` (macOS/Linux) to your system PATH.
 
 ## Usage
 
 ```bash
 detective [flags]
 ```
+
+**Note:** After installation, open a **new terminal window** before using `detective`.
 
 ### Flags
 - `-path string` - Directory to investigate (default: current)
