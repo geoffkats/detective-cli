@@ -45,7 +45,7 @@ func newStyler(enabled bool) styler {
 		dim:     color.New(color.FgHiBlack).SprintfFunc(),
 		high:    color.New(color.FgRed, color.Bold).SprintfFunc(),
 		medium:  color.New(color.FgYellow).SprintfFunc(),
-		low:     color.New(color.FgCyan).SprintfFunc(),
+		low:     color.New(color.FgGreen).SprintfFunc(),
 		info:    color.New(color.FgWhite).SprintfFunc(),
 	}
 }
@@ -258,6 +258,7 @@ func generateIntegritySectionStyled(hash string, context string, style styler) s
 	sb.WriteString(style.section("◼ REPORT INTEGRITY\n\n"))
 	sb.WriteString(style.dim("Report Signature:\n"))
 	sb.WriteString(style.dim("SHA256: %s\n", hash))
+	sb.WriteString(style.dim("Report hash ensures integrity and tamper detection.\n"))
 	if context != "" && context != "default" {
 		sb.WriteString(style.label("Context: %s\n", strings.ToUpper(context)))
 	}
