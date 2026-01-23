@@ -2,7 +2,10 @@ module github.com/detective-cli/detective
 
 go 1.21
 
-require github.com/go-git/go-git/v5 v5.11.0
+require (
+	github.com/fatih/color v1.18.0
+	github.com/go-git/go-git/v5 v5.11.0
+)
 
 require (
 	dario.cat/mergo v1.0.0 // indirect
@@ -11,7 +14,6 @@ require (
 	github.com/cloudflare/circl v1.3.3 // indirect
 	github.com/cyphar/filepath-securejoin v0.2.4 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
-	github.com/fatih/color v1.18.0 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.5.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
