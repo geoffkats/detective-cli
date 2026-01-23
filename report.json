@@ -1,0 +1,122 @@
+{
+  "file_system": {
+    "TotalFiles": 14,
+    "TotalDirectories": 11,
+    "TotalSize": 10077142,
+    "FileTypes": {
+      ".bat": 3,
+      ".exe": 1,
+      ".gitignore": 1,
+      ".go": 6,
+      ".md": 1,
+      ".mod": 1,
+      ".sum": 1
+    },
+    "LargestFiles": [
+      {
+        "Path": "C:\\Users\\User\\OneDrive\\Desktop\\detective-case\\bin\\detective.exe",
+        "Size": 10013696,
+        "Type": ".exe"
+      },
+      {
+        "Path": "C:\\Users\\User\\OneDrive\\Desktop\\detective-case\\go.sum",
+        "Size": 13173,
+        "Type": ".sum"
+      },
+      {
+        "Path": "C:\\Users\\User\\OneDrive\\Desktop\\detective-case\\cmd\\detective\\main.go",
+        "Size": 10804,
+        "Type": ".go"
+      },
+      {
+        "Path": "C:\\Users\\User\\OneDrive\\Desktop\\detective-case\\internal\\reporter\\reporter.go",
+        "Size": 10156,
+        "Type": ".go"
+      },
+      {
+        "Path": "C:\\Users\\User\\OneDrive\\Desktop\\detective-case\\internal\\inference\\inference.go",
+        "Size": 9780,
+        "Type": ".go"
+      },
+      {
+        "Path": "C:\\Users\\User\\OneDrive\\Desktop\\detective-case\\README.md",
+        "Size": 6765,
+        "Type": ".md"
+      },
+      {
+        "Path": "C:\\Users\\User\\OneDrive\\Desktop\\detective-case\\internal\\scanner\\scanner.go",
+        "Size": 5097,
+        "Type": ".go"
+      },
+      {
+        "Path": "C:\\Users\\User\\OneDrive\\Desktop\\detective-case\\pkg\\models\\models.go",
+        "Size": 2470,
+        "Type": ".go"
+      },
+      {
+        "Path": "C:\\Users\\User\\OneDrive\\Desktop\\detective-case\\internal\\git\\git.go",
+        "Size": 2063,
+        "Type": ".go"
+      },
+      {
+        "Path": "C:\\Users\\User\\OneDrive\\Desktop\\detective-case\\go.mod",
+        "Size": 1179,
+        "Type": ".mod"
+      }
+    ]
+  },
+  "findings": [
+    {
+      "Severity": 1,
+      "Title": "Large File Detected",
+      "Description": "File exceeds 1MB, may impact repository performance and code review efficiency.",
+      "Evidence": [
+        "C:\\Users\\User\\OneDrive\\Desktop\\detective-case\\bin\\detective.exe: 10013696 bytes"
+      ]
+    },
+    {
+      "Severity": 0,
+      "Title": "Limited Commit History",
+      "Description": "Repository has minimal commit history, suggesting early development stage.",
+      "Evidence": [
+        "Total commits: 0"
+      ]
+    },
+    {
+      "Severity": 1,
+      "Title": "Known Issues in Code",
+      "Description": "Found 1 FIXME/BUG markers indicating known problems requiring attention.",
+      "Evidence": [
+        "FIXME: 1, BUG: 0"
+      ]
+    },
+    {
+      "Severity": 0,
+      "Title": "Pending Tasks",
+      "Description": "Found 2 TODO markers indicating incomplete features or planned work.",
+      "Evidence": [
+        "TODO markers: 2"
+      ]
+    },
+    {
+      "Severity": 1,
+      "Title": "Technical Debt Indicators",
+      "Description": "Found 1 HACK markers suggesting suboptimal solutions requiring refactoring.",
+      "Evidence": [
+        "HACK markers: 1"
+      ]
+    }
+  ],
+  "git_repository": {
+    "IsRepository": true,
+    "TotalCommits": 0,
+    "Contributors": 0,
+    "FirstCommitDate": "0001-01-01T00:00:00Z",
+    "LastCommitDate": "0001-01-01T00:00:00Z",
+    "RecentActivity": null
+  },
+  "health_score": 81,
+  "investigated_at": "2026-01-23T16:27:37.5433965+03:00",
+  "target_path": "C:\\Users\\User\\OneDrive\\Desktop\\detective-case",
+  "total_findings": 5
+}
