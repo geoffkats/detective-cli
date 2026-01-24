@@ -12,6 +12,25 @@ import (
 	"github.com/detective-cli/detective/pkg/models"
 )
 
+// ScanOptions controls scanning behavior
+type ScanOptions struct {
+	ExcludeDirs []string        // directory names to skip entirely
+	OnlyExts    map[string]bool // optional allowed file extensions (for code marker scan)
+	SkipHidden  bool            // skip hidden directories/files (names starting with .)
+}
+
+func shouldSkipDir(name string, opts ScanOptions) bool {
+	if opts.SkipHidden && strings.HasPrefix(name, ".") {
+		return true
+	}
+	for _, ex := range opts.ExcludeDirs {
+		if name == ex {
+			return true
+		}
+	}
+	return false
+}
+
 var markerPatterns = map[string]*regexp.Regexp{
 	"TODO":  regexp.MustCompile(`(?i)//\s*TODO:?\s*(.+)`),
 	"FIXME": regexp.MustCompile(`(?i)//\s*FIXME:?\s*(.+)`),
@@ -21,7 +40,7 @@ var markerPatterns = map[string]*regexp.Regexp{
 }
 
 // ScanFileSystem analyzes the file system at the given path
-func ScanFileSystem(rootPath string) (models.FileSystemEvidence, error) {
+func ScanFileSystem(rootPath string, opts ScanOptions) (models.FileSystemEvidence, error) {
 	evidence := models.FileSystemEvidence{
 		FileTypes:    make(map[string]int),
 		LargestFiles: []models.FileInfo{},
@@ -32,9 +51,14 @@ func ScanFileSystem(rootPath string) (models.FileSystemEvidence, error) {
 			return nil // Skip files we can't access
 		}
 
-		// Skip .git directories
-		if info.IsDir() && info.Name() == ".git" {
-			return filepath.SkipDir
+		// Skip excluded directories
+		if info.IsDir() {
+			if shouldSkipDir(info.Name(), opts) {
+				// record skipped dir
+				evidence.SkippedDirs = append(evidence.SkippedDirs, info.Name())
+				evidence.SkippedDirsCount++
+				return filepath.SkipDir
+			}
 		}
 
 		if info.IsDir() {
@@ -82,7 +106,7 @@ func ScanFileSystem(rootPath string) (models.FileSystemEvidence, error) {
 }
 
 // ScanCodeMarkers searches for code maintenance markers in source files
-func ScanCodeMarkers(rootPath string) ([]models.CodeMarker, error) {
+func ScanCodeMarkers(rootPath string, opts ScanOptions) ([]models.CodeMarker, error) {
 	var markers []models.CodeMarker
 
 	codeExtensions := map[string]bool{
@@ -91,14 +115,19 @@ func ScanCodeMarkers(rootPath string) ([]models.CodeMarker, error) {
 		".php": true, ".cs": true, ".swift": true, ".kt": true,
 	}
 
+	// If opts.OnlyExts provided, override default set
+	if opts.OnlyExts != nil && len(opts.OnlyExts) > 0 {
+		codeExtensions = opts.OnlyExts
+	}
+
 	err := filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}
 
-		// Skip directories and .git
+		// Skip directories per options
 		if info.IsDir() {
-			if info.Name() == ".git" {
+			if shouldSkipDir(info.Name(), opts) {
 				return filepath.SkipDir
 			}
 			return nil
@@ -143,7 +172,7 @@ func ScanCodeMarkers(rootPath string) ([]models.CodeMarker, error) {
 }
 
 // AnalyzeTimeline analyzes file modification patterns
-func AnalyzeTimeline(rootPath string) (models.TimelineEvidence, error) {
+func AnalyzeTimeline(rootPath string, opts ScanOptions) (models.TimelineEvidence, error) {
 	timeline := models.TimelineEvidence{}
 	var modTimes []time.Time
 
@@ -152,9 +181,9 @@ func AnalyzeTimeline(rootPath string) (models.TimelineEvidence, error) {
 			return nil
 		}
 
-		// Skip directories and .git
+		// Skip directories per options
 		if info.IsDir() {
-			if info.Name() == ".git" {
+			if shouldSkipDir(info.Name(), opts) {
 				return filepath.SkipDir
 			}
 			return nil

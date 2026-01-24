@@ -18,6 +18,8 @@ type FileSystemEvidence struct {
 	TotalSize        int64
 	FileTypes        map[string]int
 	LargestFiles     []FileInfo
+	SkippedDirs      []string
+	SkippedDirsCount int
 }
 
 // FileInfo represents information about a single file

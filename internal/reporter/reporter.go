@@ -110,6 +110,27 @@ func generateEvidenceSectionStyled(evidence models.Evidence, style styler) strin
 	sb.WriteString(style.label("  Total Directories: %d\n", evidence.FileSystem.TotalDirectories))
 	sb.WriteString(style.label("  Total Size: %s\n", formatBytes(evidence.FileSystem.TotalSize)))
 
+	if evidence.FileSystem.SkippedDirsCount > 0 {
+		unique := make(map[string]struct{})
+		var names []string
+		for _, n := range evidence.FileSystem.SkippedDirs {
+			if _, ok := unique[n]; !ok {
+				unique[n] = struct{}{}
+				names = append(names, n)
+			}
+		}
+		sb.WriteString(style.label("\n  Skipped Directories: %d\n", evidence.FileSystem.SkippedDirsCount))
+		if len(names) > 0 {
+			limit := 6
+			if len(names) < limit {
+				limit = len(names)
+			}
+			for i := 0; i < limit; i++ {
+				sb.WriteString(style.dim("    - %s\n", names[i]))
+			}
+		}
+	}
+
 	sb.WriteString("\n  File Type Distribution:\n")
 	// Sort file types by count
 	types := make([]string, 0, len(evidence.FileSystem.FileTypes))
