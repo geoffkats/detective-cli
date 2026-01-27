@@ -73,7 +73,7 @@ func GenerateReportStyled(report models.Report, colorEnabled bool) string {
 	sb.WriteString("\n")
 
 	// Health Assessment
-	sb.WriteString(generateHealthSectionStyled(report.HealthScore, style))
+	sb.WriteString(generateHealthSectionStyled(report.HealthScore, report.HealthBreakdown, style))
 	sb.WriteString("\n")
 
 	// Investigator Notes
@@ -224,11 +224,17 @@ func generateFindingsSectionStyled(findings []models.Finding, style styler) stri
 	return sb.String()
 }
 
-func generateHealthSectionStyled(healthScore int, style styler) string {
+func generateHealthSectionStyled(healthScore int, breakdown models.HealthBreakdown, style styler) string {
 	var sb strings.Builder
 
 	sb.WriteString(style.section("◼ HEALTH ASSESSMENT\n\n"))
-	sb.WriteString(style.label("Overall Health Score: %d/100\n\n", healthScore))
+	sb.WriteString(style.label("Overall Health Score: %d/100\n", healthScore))
+	sb.WriteString(style.dim("  Version Control: %d/20\n", breakdown.VersionControl))
+	sb.WriteString(style.dim("  Code Quality: %d/25\n", breakdown.CodeQuality))
+	sb.WriteString(style.dim("  Security: %d/20\n", breakdown.Security))
+	sb.WriteString(style.dim("  Performance: %d/15\n", breakdown.Performance))
+	sb.WriteString(style.dim("  Documentation: %d/10\n", breakdown.Documentation))
+	sb.WriteString(style.dim("  Testing: %d/10\n\n", breakdown.Testing))
 
 	var assessment string
 	switch {

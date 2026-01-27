@@ -13,14 +13,10 @@ import (
 func GenerateFindings(evidence models.Evidence) []models.Finding {
 	var findings []models.Finding
 
-	// Analyze file system evidence
 	findings = append(findings, analyzeFileSystem(evidence.FileSystem)...)
-
-	// Analyze git evidence
 	findings = append(findings, analyzeGit(evidence.Git)...)
-
-	// Analyze code markers
 	findings = append(findings, analyzeCodeMarkers(evidence.CodeMarkers)...)
+	findings = append(findings, analyzeSecurity(evidence.Security)...)
 
 	return findings
 }
@@ -28,26 +24,58 @@ func GenerateFindings(evidence models.Evidence) []models.Finding {
 func analyzeFileSystem(fs models.FileSystemEvidence) []models.Finding {
 	var findings []models.Finding
 
-	// Check for empty or very small projects
+	// Empty or small projects
 	if fs.TotalFiles < 5 {
 		findings = append(findings, models.Finding{
 			Severity:    models.SeverityLow,
 			Title:       "Minimal File Count",
 			Description: fmt.Sprintf("Project contains only %d files, suggesting early development stage or incomplete project.", fs.TotalFiles),
 			Evidence:    []string{fmt.Sprintf("Total files: %d", fs.TotalFiles)},
+			Category:    models.FindingMaintainability,
+			Recommendations: []string{
+				"Add baseline structure (src/, docs/, tests/) to grow maintainably.",
+			},
 		})
 	}
 
-	// Check for large files
+	// Smarter large-file categorization
 	for _, file := range fs.LargestFiles {
-		if file.Size > 1024*1024 { // > 1MB
-			findings = append(findings, models.Finding{
-				Severity:    models.SeverityMedium,
-				Title:       "Large File Detected",
-				Description: fmt.Sprintf("File exceeds 1MB, may impact repository performance and code review efficiency."),
-				Evidence:    []string{fmt.Sprintf("%s: %d bytes", file.Path, file.Size)},
-			})
+		if file.Size <= 1*1024*1024 {
+			continue
 		}
+
+		sev := models.SeverityLow
+		title := "Large File Detected"
+		desc := "File exceeds 1MB; consider keeping heavy artifacts out of source control."
+		recs := []string{"Move generated artifacts to .gitignore; store assets in CDN or release storage."}
+
+		switch file.Category {
+		case models.CategorySource:
+			sev = models.SeverityHigh
+			desc = "Large source file can hinder reviews and performance. Consider refactor or splitting."
+			recs = []string{"Refactor into smaller modules; ensure code owners review for complexity."}
+		case models.CategoryBuildArtifact, models.CategoryDependency:
+			sev = models.SeverityLow
+			desc = "Build artifact or dependency checked in; usually belongs in releases, not VCS."
+			recs = []string{"Add patterns to .gitignore (e.g., build outputs, vendor bundles)."}
+		case models.CategoryAsset:
+			sev = models.SeverityLow
+			desc = "Large asset detected; consider optimizing or hosting externally."
+			recs = []string{"Compress/resize assets; use asset pipeline or CDN."}
+		case models.CategoryTest:
+			sev = models.SeverityMedium
+			desc = "Unusually large test file; may indicate fixtures that belong outside repo."
+			recs = []string{"Externalize large fixtures; generate fixtures on the fly where possible."}
+		}
+
+		findings = append(findings, models.Finding{
+			Severity:        sev,
+			Title:           title,
+			Description:     desc,
+			Evidence:        []string{fmt.Sprintf("%s (%s) %d bytes", file.Path, file.Category, file.Size)},
+			Recommendations: recs,
+			Category:        models.FindingPerformance,
+		})
 	}
 
 	return findings
@@ -59,10 +87,12 @@ func analyzeGit(git models.GitEvidence) []models.Finding {
 	// Check if not a git repository
 	if !git.IsRepository {
 		findings = append(findings, models.Finding{
-			Severity:    models.SeverityHigh,
-			Title:       "No Version Control",
-			Description: "Directory is not a git repository. Version control is essential for tracking changes and collaboration.",
-			Evidence:    []string{"No .git directory found"},
+			Severity:        models.SeverityHigh,
+			Title:           "No Version Control",
+			Description:     "Directory is not a git repository. Version control is essential for tracking changes and collaboration.",
+			Evidence:        []string{"No .git directory found"},
+			Recommendations: []string{"Initialize git, commit a baseline, and push to a remote (GitHub/GitLab)."},
+			Category:        models.FindingVersionControl,
 		})
 		return findings
 	}
@@ -70,10 +100,12 @@ func analyzeGit(git models.GitEvidence) []models.Finding {
 	// Check for single contributor
 	if git.Contributors == 1 {
 		findings = append(findings, models.Finding{
-			Severity:    models.SeverityLow,
-			Title:       "Single Contributor",
-			Description: "Project has only one contributor, indicating potential bus factor risk.",
-			Evidence:    []string{fmt.Sprintf("Contributors: %d", git.Contributors)},
+			Severity:        models.SeverityLow,
+			Title:           "Single Contributor",
+			Description:     "Project has only one contributor, indicating potential bus factor risk.",
+			Evidence:        []string{fmt.Sprintf("Contributors: %d", git.Contributors)},
+			Recommendations: []string{"Add a second maintainer or reviewer; document critical workflows."},
+			Category:        models.FindingVersionControl,
 		})
 	}
 
@@ -82,10 +114,12 @@ func analyzeGit(git models.GitEvidence) []models.Finding {
 		daysSinceLastCommit := int(time.Since(git.LastCommitDate).Hours() / 24)
 		if daysSinceLastCommit > 180 {
 			findings = append(findings, models.Finding{
-				Severity:    models.SeverityMedium,
-				Title:       "Stale Repository",
-				Description: fmt.Sprintf("No commits in the last %d days, project may be abandoned or inactive.", daysSinceLastCommit),
-				Evidence:    []string{fmt.Sprintf("Last commit: %s", git.LastCommitDate.Format("2006-01-02"))},
+				Severity:        models.SeverityMedium,
+				Title:           "Stale Repository",
+				Description:     fmt.Sprintf("No commits in the last %d days, project may be abandoned or inactive.", daysSinceLastCommit),
+				Evidence:        []string{fmt.Sprintf("Last commit: %s", git.LastCommitDate.Format("2006-01-02"))},
+				Recommendations: []string{"Schedule maintenance sprint; review backlog and cut a release or archive."},
+				Category:        models.FindingVersionControl,
 			})
 		}
 	}
@@ -93,12 +127,40 @@ func analyzeGit(git models.GitEvidence) []models.Finding {
 	// Check for low commit count
 	if git.TotalCommits < 10 {
 		findings = append(findings, models.Finding{
-			Severity:    models.SeverityLow,
-			Title:       "Limited Commit History",
-			Description: "Repository has minimal commit history, suggesting early development stage.",
-			Evidence:    []string{fmt.Sprintf("Total commits: %d", git.TotalCommits)},
+			Severity:        models.SeverityLow,
+			Title:           "Limited Commit History",
+			Description:     "Repository has minimal commit history, suggesting early development stage.",
+			Evidence:        []string{fmt.Sprintf("Total commits: %d", git.TotalCommits)},
+			Recommendations: []string{"Adopt smaller, frequent commits with clear messages to improve traceability."},
+			Category:        models.FindingVersionControl,
 		})
 	}
+
+	// Uncommitted changes
+	if git.UncommittedChanges {
+		findings = append(findings, models.Finding{
+			Severity:        models.SeverityMedium,
+			Title:           "Working Tree Has Uncommitted Changes",
+			Description:     "There are pending changes not committed; risk of loss or drift from remote.",
+			Evidence:        []string{"git status reports dirty working tree"},
+			Recommendations: []string{"Commit or stash changes; ensure CI reflects current state."},
+			Category:        models.FindingVersionControl,
+		})
+	}
+
+	// Commit message quality
+	if git.CommitMessageQuality < 0.5 {
+		findings = append(findings, models.Finding{
+			Severity:        models.SeverityLow,
+			Title:           "Commit Message Quality Could Improve",
+			Description:     "Commit messages are brief or non-descriptive; this hurts traceability.",
+			Evidence:        []string{fmt.Sprintf("Quality score: %.2f", git.CommitMessageQuality)},
+			Recommendations: []string{"Use conventional commits or descriptive messages (what/why)."},
+			Category:        models.FindingVersionControl,
+		})
+	}
+
+	return findings
 
 	return findings
 }
@@ -123,10 +185,12 @@ func analyzeCodeMarkers(markers []models.CodeMarker) []models.Finding {
 			severity = models.SeverityHigh
 		}
 		findings = append(findings, models.Finding{
-			Severity:    severity,
-			Title:       "Known Issues in Code",
-			Description: fmt.Sprintf("Found %d FIXME/BUG markers indicating known problems requiring attention.", count),
-			Evidence:    []string{fmt.Sprintf("FIXME: %d, BUG: %d", markerCounts["FIXME"], markerCounts["BUG"])},
+			Severity:        severity,
+			Title:           "Known Issues in Code",
+			Description:     fmt.Sprintf("Found %d FIXME/BUG markers indicating known problems requiring attention.", count),
+			Evidence:        []string{fmt.Sprintf("FIXME: %d, BUG: %d", markerCounts["FIXME"], markerCounts["BUG"])},
+			Recommendations: []string{"Create tickets for each FIX/BUG marker and prioritize remediation."},
+			Category:        models.FindingCodeQuality,
 		})
 	}
 
@@ -137,20 +201,24 @@ func analyzeCodeMarkers(markers []models.CodeMarker) []models.Finding {
 			severity = models.SeverityMedium
 		}
 		findings = append(findings, models.Finding{
-			Severity:    severity,
-			Title:       "Pending Tasks",
-			Description: fmt.Sprintf("Found %d TODO markers indicating incomplete features or planned work.", count),
-			Evidence:    []string{fmt.Sprintf("TODO markers: %d", count)},
+			Severity:        severity,
+			Title:           "Pending Tasks",
+			Description:     fmt.Sprintf("Found %d TODO markers indicating incomplete features or planned work.", count),
+			Evidence:        []string{fmt.Sprintf("TODO markers: %d", count)},
+			Recommendations: []string{"Convert top TODOs into backlog items; schedule cleanup sprints."},
+			Category:        models.FindingMaintainability,
 		})
 	}
 
 	// HACK markers
 	if count := markerCounts["HACK"]; count > 0 {
 		findings = append(findings, models.Finding{
-			Severity:    models.SeverityMedium,
-			Title:       "Technical Debt Indicators",
-			Description: fmt.Sprintf("Found %d HACK markers suggesting suboptimal solutions requiring refactoring.", count),
-			Evidence:    []string{fmt.Sprintf("HACK markers: %d", count)},
+			Severity:        models.SeverityMedium,
+			Title:           "Technical Debt Indicators",
+			Description:     fmt.Sprintf("Found %d HACK markers suggesting suboptimal solutions requiring refactoring.", count),
+			Evidence:        []string{fmt.Sprintf("HACK markers: %d", count)},
+			Recommendations: []string{"Refactor HACK areas; add tests before changing risky code."},
+			Category:        models.FindingMaintainability,
 		})
 	}
 
@@ -158,27 +226,103 @@ func analyzeCodeMarkers(markers []models.CodeMarker) []models.Finding {
 }
 
 // CalculateHealthScore computes an overall health score (0-100)
-func CalculateHealthScore(findings []models.Finding) int {
-	score := 100
+func CalculateHealthScore(evidence models.Evidence, findings []models.Finding) int {
+	breakdown := CalculateHealthBreakdown(evidence, findings)
+	return breakdown.VersionControl + breakdown.CodeQuality + breakdown.Security + breakdown.Performance + breakdown.Documentation + breakdown.Testing
+}
 
-	for _, finding := range findings {
-		switch finding.Severity {
-		case models.SeverityCritical:
-			score -= 20
-		case models.SeverityHigh:
-			score -= 10
-		case models.SeverityMedium:
-			score -= 5
-		case models.SeverityLow:
-			score -= 2
+// CalculateHealthBreakdown applies weighted scoring (100 total)
+func CalculateHealthBreakdown(evidence models.Evidence, findings []models.Finding) models.HealthBreakdown {
+	b := models.HealthBreakdown{}
+
+	// Version control (20)
+	if evidence.Git.IsRepository {
+		b.VersionControl += 8
+		if evidence.Git.TotalCommits >= 20 {
+			b.VersionControl += 4
+		}
+		if evidence.Git.CommitFrequency.Last30Days >= 5 {
+			b.VersionControl += 4
+		}
+		if !evidence.Git.UncommittedChanges {
+			b.VersionControl += 4
 		}
 	}
 
-	if score < 0 {
-		score = 0
+	// Code quality (25): based on markers and source size
+	markerPenalty := 0
+	for _, f := range findings {
+		if f.Category == models.FindingCodeQuality || f.Category == models.FindingMaintainability {
+			switch f.Severity {
+			case models.SeverityCritical:
+				markerPenalty += 10
+			case models.SeverityHigh:
+				markerPenalty += 7
+			case models.SeverityMedium:
+				markerPenalty += 4
+			case models.SeverityLow:
+				markerPenalty += 2
+			}
+		}
+	}
+	b.CodeQuality = maxInt(0, 25-markerPenalty)
+
+	// Security (20)
+	securityPenalty := 0
+	for _, f := range findings {
+		if f.Category == models.FindingSecurity {
+			switch f.Severity {
+			case models.SeverityCritical:
+				securityPenalty += 10
+			case models.SeverityHigh:
+				securityPenalty += 7
+			case models.SeverityMedium:
+				securityPenalty += 4
+			case models.SeverityLow:
+				securityPenalty += 2
+			}
+		}
+	}
+	b.Security = maxInt(0, 20-securityPenalty)
+
+	// Performance (15)
+	perfPenalty := 0
+	for _, f := range findings {
+		if f.Category == models.FindingPerformance {
+			switch f.Severity {
+			case models.SeverityCritical, models.SeverityHigh:
+				perfPenalty += 6
+			case models.SeverityMedium:
+				perfPenalty += 4
+			case models.SeverityLow:
+				perfPenalty += 2
+			}
+		}
+	}
+	b.Performance = maxInt(0, 15-perfPenalty)
+
+	// Documentation (10)
+	docPoints := 0
+	if evidence.FileSystem.FileTypes[".md"] > 0 || evidence.FileSystem.FileTypes[".adoc"] > 0 {
+		docPoints += 6
+	}
+	if evidence.FileSystem.FileTypes[".md"] > 1 {
+		docPoints += 2
+	}
+	if evidence.FileSystem.FileTypes[".txt"] > 0 {
+		docPoints += 2
+	}
+	b.Documentation = minInt(docPoints, 10)
+
+	// Testing (10)
+	if evidence.FileSystem.CategorizedFiles.TestFiles > 0 {
+		b.Testing = 8
+		if evidence.FileSystem.CategorizedFiles.TestFiles > evidence.FileSystem.CategorizedFiles.SourceFiles/5 {
+			b.Testing = 10
+		}
 	}
 
-	return score
+	return b
 }
 
 // GenerateInvestigatorNotes creates forensic narrative insights
@@ -288,4 +432,71 @@ func ComputeReportHash(report models.Report) string {
 		report.Evidence.Git.IsRepository)
 	hash := sha256.Sum256([]byte(data))
 	return fmt.Sprintf("%x", hash)[:16]
+}
+
+func analyzeSecurity(sec models.SecurityEvidence) []models.Finding {
+	var findings []models.Finding
+
+	for _, s := range sec.HardcodedSecrets {
+		findings = append(findings, models.Finding{
+			Severity:    models.SeverityHigh,
+			Title:       "Potential Hardcoded Secret",
+			Description: fmt.Sprintf("Possible secret (%s) detected in code.", s.Type),
+			Evidence:    []string{fmt.Sprintf("%s:%d (%s)", s.File, s.Line, s.Pattern)},
+			Recommendations: []string{
+				"Rotate the exposed credential immediately.",
+				"Replace with environment variables or secret manager (Vault, AWS Secrets Manager).",
+			},
+			Category: models.FindingSecurity,
+		})
+	}
+
+	for _, risk := range sec.SQLInjectionRisks {
+		findings = append(findings, models.Finding{
+			Severity:        models.SeverityHigh,
+			Title:           "SQL Injection Risk",
+			Description:     risk.Description,
+			Evidence:        []string{fmt.Sprintf("%s:%d", risk.File, risk.Line)},
+			Recommendations: []string{"Use parameterized queries/ORM bindings; avoid string concatenation."},
+			Category:        models.FindingSecurity,
+		})
+	}
+
+	for _, risk := range sec.XSSRisks {
+		findings = append(findings, models.Finding{
+			Severity:        models.SeverityMedium,
+			Title:           "Potential XSS Vector",
+			Description:     risk.Description,
+			Evidence:        []string{fmt.Sprintf("%s:%d", risk.File, risk.Line)},
+			Recommendations: []string{"HTML-escape untrusted output; use templating safeguards; add CSP."},
+			Category:        models.FindingSecurity,
+		})
+	}
+
+	for _, risk := range sec.InsecurePatterns {
+		findings = append(findings, models.Finding{
+			Severity:        risk.Severity,
+			Title:           risk.Type,
+			Description:     risk.Description,
+			Evidence:        []string{fmt.Sprintf("%s:%d", risk.File, risk.Line)},
+			Recommendations: []string{"Follow secure coding practices; add tests around this area."},
+			Category:        models.FindingSecurity,
+		})
+	}
+
+	return findings
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

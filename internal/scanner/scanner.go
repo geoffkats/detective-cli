@@ -74,11 +74,16 @@ func ScanFileSystem(rootPath string, opts ScanOptions) (models.FileSystemEvidenc
 			}
 			evidence.FileTypes[ext]++
 
+			// Categorize file
+			category := categorizeFile(path, ext)
+			updateCategoryCounts(&evidence.CategorizedFiles, category)
+
 			// Track large files (top 10)
 			fileInfo := models.FileInfo{
-				Path: path,
-				Size: info.Size(),
-				Type: ext,
+				Path:     path,
+				Size:     info.Size(),
+				Type:     ext,
+				Category: category,
 			}
 			evidence.LargestFiles = append(evidence.LargestFiles, fileInfo)
 		}
@@ -228,4 +233,89 @@ func AnalyzeTimeline(rootPath string, opts ScanOptions) (models.TimelineEvidence
 	}
 
 	return timeline, nil
+}
+
+// categorizeFile determines the purpose/category of a file
+func categorizeFile(path, ext string) models.FileCategory {
+	lowerPath := strings.ToLower(path)
+	lowerExt := strings.ToLower(ext)
+
+	// Source code
+	sourceExts := map[string]bool{
+		".go": true, ".js": true, ".ts": true, ".tsx": true, ".jsx": true,
+		".py": true, ".php": true, ".java": true, ".c": true, ".cpp": true,
+		".rb": true, ".rs": true, ".cs": true, ".kt": true, ".swift": true,
+	}
+	if sourceExts[lowerExt] {
+		// Check if it's a test file
+		if strings.Contains(lowerPath, "_test.") || strings.Contains(lowerPath, ".test.") ||
+			strings.Contains(lowerPath, "/test/") || strings.Contains(lowerPath, "\\test\\") {
+			return models.CategoryTest
+		}
+		return models.CategorySource
+	}
+
+	// Assets
+	assetExts := map[string]bool{
+		".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".svg": true,
+		".ico": true, ".webp": true, ".mp4": true, ".mp3": true, ".wav": true,
+		".pdf": true, ".zip": true, ".ttf": true, ".woff": true, ".woff2": true,
+	}
+	if assetExts[lowerExt] {
+		return models.CategoryAsset
+	}
+
+	// Build artifacts
+	buildArtifacts := []string{".exe", ".dll", ".so", ".dylib", ".o", ".a", ".class", ".pyc"}
+	for _, suffix := range buildArtifacts {
+		if lowerExt == suffix {
+			return models.CategoryBuildArtifact
+		}
+	}
+
+	// Dependencies (in specific directories)
+	if strings.Contains(lowerPath, "node_modules") || strings.Contains(lowerPath, "vendor") ||
+		strings.Contains(lowerPath, "packages") {
+		return models.CategoryDependency
+	}
+
+	// Configuration files
+	configFiles := []string{"config", ".env", ".yml", ".yaml", ".toml", ".ini", ".conf", ".json"}
+	for _, suffix := range configFiles {
+		if strings.Contains(lowerPath, suffix) {
+			return models.CategoryConfig
+		}
+	}
+
+	// Documentation
+	docExts := []string{".md", ".txt", ".rst", ".adoc"}
+	for _, docExt := range docExts {
+		if lowerExt == docExt {
+			return models.CategoryDocumentation
+		}
+	}
+
+	return models.CategoryOther
+}
+
+// updateCategoryCounts increments the appropriate category counter
+func updateCategoryCounts(cat *models.CategorizedFiles, category models.FileCategory) {
+	switch category {
+	case models.CategorySource:
+		cat.SourceFiles++
+	case models.CategoryAsset:
+		cat.AssetFiles++
+	case models.CategoryDependency:
+		cat.DependencyFiles++
+	case models.CategoryBuildArtifact:
+		cat.BuildArtifacts++
+	case models.CategoryConfig:
+		cat.ConfigFiles++
+	case models.CategoryDocumentation:
+		cat.DocumentationFiles++
+	case models.CategoryTest:
+		cat.TestFiles++
+	default:
+		cat.OtherFiles++
+	}
 }
