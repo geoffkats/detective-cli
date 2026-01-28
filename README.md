@@ -17,14 +17,25 @@ Unlike traditional linters or code analyzers, Detective:
 
 ## Features
 
-- **File System Analysis** - Scans directory structure, file counts, sizes, and type distribution
-- **Code Marker Detection** - Identifies TODO, FIXME, HACK, BUG, and NOTE markers
-- **Git History Analysis** - Examines commit patterns, activity levels, and contributor data
-- **Timeline Analysis** - Detects activity bursts, dormancy patterns, and development velocity
-- **Investigator Notes** - Generates forensic insights and observations from evidence patterns
-- **Context Modes** - Evaluates projects differently based on maturity level (student, enterprise, default)
-- **Report Integrity** - Includes SHA256 hash for audit and verification purposes
-- **Multiple Formats** - Export reports as text, JSON, or Markdown
+### Core Analysis
+- **File System Analysis** - Smart categorization of files (source, assets, dependencies, artifacts, config, docs, tests); identifies large files contextually
+- **Code Marker Detection** - Identifies TODO, FIXME, HACK, BUG, NOTE markers with severity assessment and actionable resolution steps
+- **Git History Analysis** - Commit frequency patterns, top contributors, commit message quality scoring, uncommitted changes, branch count, activity trends
+- **Timeline Analysis** - Activity bursts, dormancy patterns, development velocity, file modification windows
+- **Project Type Detection** - Auto-detects frameworks (Laravel, Node.js, Django, Docker) with framework-specific recommendations
+
+### Security & Quality
+- **Security Analysis** - Hardcoded secret detection (API keys, passwords, tokens), SQL injection patterns, XSS vulnerabilities, insecure crypto flags, weak protocols
+- **Health Scoring (Weighted)** - Transparent 100-point system with breakdown: Version Control (20), Code Quality (25), Security (20), Performance (15), Documentation (10), Testing (10)
+- **Actionable Recommendations** - Every finding includes specific next steps to remediate (e.g., "Add missing .gitignore", "Use parameterized queries")
+- **Context Modes** - Evaluates projects differently based on maturity (student, enterprise, default)
+
+### Reporting & UX
+- **Multiple Export Formats** - Text, JSON, and Markdown with optional styling and colors
+- **Report Integrity** - SHA256 hash verification for audit trails and tamper detection
+- **Interactive Mode** - Rescan findings (R), set watch interval (W), quit (Q) from menu after report
+- **Performance-Optimized** - Fast mode (-fast) and custom exclusions (-exclude) to skip heavy directories
+- **Watch Mode** - Periodic rescanning with -watch flag or toggle from interactive menu
 
 ## Installation
 
@@ -65,61 +76,130 @@ detective [flags]
 **Note:** After installation, open a **new terminal window** before using `detective`.
 
 ### Flags
-- `-path string` - Directory to investigate (default: current)
-- `-format string` - Output format: text, json, markdown (default: text)
-- `-context string` - Evaluation context: default, student, enterprise (default: default)
-- `-severity string` - Filter findings: low, medium, high, critical
-- `-export string` - Export report to file
-- `-markers` - Show detailed code markers list
-- `-verbose` - Show progress information
+
+**Investigation Scope & Output**
+- `-path string` - Directory to investigate (default: current working directory)
+- `-format string` - Report format: `text`, `json`, `markdown` (default: text)
+- `-export string` - Export report to file (e.g., report.json, report.md)
+- `-context string` - Evaluation context: `default`, `student`, `enterprise` (default: default)
+
+**Filtering & Severity**
+- `-severity string` - Filter findings by minimum severity: `low`, `medium`, `high`, `critical`
+- `-markers` - Include detailed code markers section in report
+
+**Performance & Optimization**
+- `-fast` - Fast mode: skip vendor/, node_modules/, .git/, bin/, and hidden files/dirs
+- `-exclude string` - Comma-separated list of directories to exclude (e.g., `-exclude vendor,node_modules,dist`)
+
+**CLI Experience**
+- `-verbose` - Show analysis progress and detailed output
+- `-no-color` - Disable colored text output
+- `-watch int` - Watch mode: auto-rescan every N seconds (interactive or toggle from menu)
+- `-no-interactive` - Skip interactive menu; print report and exit
 
 ### Examples
 
-Basic investigation:
+**Basic Investigation**
 ```bash
-detective
+detective                          # Quick scan current directory
+detective -path /path/to/project   # Scan specific directory
+detective -verbose                 # Show progress during scan
 ```
 
-Student project analysis:
+**Performance Optimization**
 ```bash
-detective -context student -verbose
+detective -fast                    # Skip vendor, node_modules, .git, hidden dirs
+detective -exclude vendor,dist     # Custom directory exclusions
+detective -fast -exclude build     # Combined: fast mode + extra exclusions
 ```
 
-Enterprise code audit (high severity only):
+**Context-Aware Analysis**
 ```bash
-detective -context enterprise -severity high
+detective -context student -verbose        # Lenient scoring for learning projects
+detective -context enterprise -severity high # Strict audit for production systems
 ```
 
-Export as JSON:
+**Export & Reporting**
 ```bash
-detective -format json -export report.json
+detective -format json -export report.json                    # JSON export
+detective -format markdown -markers -export report.md         # Markdown with markers
+detective -format text -severity high -export critical.txt    # High-severity findings only
 ```
 
-Markdown report with code markers:
+**Security & Compliance**
 ```bash
-detective -format markdown -markers -export report.md
+detective -severity high            # Show only high and critical issues
+detective -fast -context enterprise # Production-grade fast audit
 ```
 
-Specific directory with timeline analysis:
+**Watch & Interactive**
 ```bash
-detective -path C:\Projects\my-app -verbose
+detective -watch 5                  # Auto-rescan every 5 seconds (watch mode)
+detective -verbose                  # Enter interactive menu: [R]escan, [W]atch, [Q]uit
+detective -no-interactive           # Batch mode: print and exit (for CI/CD)
+```
+
+**Real-World Scenarios**
+```bash
+# Laravel project audit
+detective -fast -context enterprise -format json -export laravel-audit.json
+
+# Node.js portfolio review
+detective -exclude node_modules -markers -format markdown -export review.md
+
+# CI/CD continuous monitoring
+detective -fast -no-interactive -severity high
+
+# Development watch mode (rescan every 30 seconds)
+detective -watch 30 -verbose
 ```
 
 ## Report Sections
 
-1. **Header** - Investigation metadata and target information
-2. **Evidence Collection** - Raw data from file system, git, timeline, and code scans
-3. **Findings** - Severity-ranked issues based on evidence
-4. **Health Assessment** - Numerical scoring (0-100) for overall project health
-5. **Investigator Notes** - Forensic insights and inferences from patterns
-6. **Report Integrity** - Hash and context information for audit trails
+### Text/Markdown Report Structure
+1. **Banner** - ASCII art header with tool branding
+2. **Header** - Investigation metadata, target path, timestamp
+3. **Evidence Summary** - File counts, git stats, code markers, security findings
+4. **Findings** - Severity-ranked (CRITICAL → LOW) with:
+   - Evidence (concrete data)
+   - Recommendations (actionable next steps)
+   - Category (Code Quality, Security, Version Control, etc.)
+5. **Code Markers Detail** - TODO, FIXME, HACK, BUG locations (optional with -markers)
+6. **Health Assessment** - Score (0-100) with weighted breakdown:
+   - Version Control (20 pts)
+   - Code Quality (25 pts)
+   - Security (20 pts)
+   - Performance (15 pts)
+   - Documentation (10 pts)
+   - Testing (10 pts)
+7. **Investigator Notes** - Forensic insights gleaned from patterns
+8. **Report Integrity** - SHA256 hash, context, and verification note
+
+### JSON Export
+Structured data suitable for integration with CI/CD, dashboards, and automated reporting:
+```json
+{
+  "targetPath": "...",
+  "investigatedAt": "...",
+  "findings": [ { "severity", "title", "description", "recommendations" } ],
+  "healthScore": 65,
+  "healthBreakdown": { "versionControl": 20, "codeQuality": 18, ... },
+  "reportHash": "sha256:..."
+}
+```
 
 ## Severity Levels
 
-- **CRITICAL** - Immediate attention required; blocking production concerns
-- **HIGH** - Significant issues impacting project quality or security
-- **MEDIUM** - Notable concerns requiring review and action
-- **LOW** - Minor observations and suggestions for improvement
+- **CRITICAL** - Immediate action required (hardcoded secrets, SQL injection, blocked deployments)
+- **HIGH** - Significant quality/security impact (no version control, known bugs, large code files)
+- **MEDIUM** - Notable concerns (stale repos, high technical debt, missing tests, XSS patterns)
+- **LOW** - Minor improvements (missing docs, high commit frequency, limited history)
+
+**Severity Coloring in Terminal Output**
+- CRITICAL: RED
+- HIGH: RED
+- MEDIUM: YELLOW
+- LOW: GREEN
 
 ## Design Philosophy
 
@@ -154,24 +234,29 @@ Stricter evaluation for production systems:
 
 ## When to Use Detective
 
-- 🔍 **Due Diligence** - Evaluate acquired codebases before acquisition
-- 📋 **Post-Mortems** - Understand what led to system failures
-- 🎓 **Code Review Prep** - Assess project health before manual review
-- 📊 **Portfolio Review** - Evaluate your own projects objectively
-- ⚖️ **Audit Trails** - Generate timestamped, hash-verified reports
-- 🏢 **Enterprise Assessments** - Context-aware evaluation for different environments
+- **Due Diligence** - Evaluate acquired/inherited codebases before onboarding
+- **Post-Mortems** - Forensic analysis after system failures or incidents
+- **Code Review Prep** - Comprehensive health assessment before manual review
+- **Security Audits** - Identify hardcoded secrets, injection vulnerabilities, weak practices
+- **Portfolio Review** - Evaluate your own projects objectively for strengths/gaps
+- **Compliance & Audit Trails** - Generate timestamped, hash-verified reports for legal/regulatory requirements
+- **Enterprise Assessments** - Context-aware evaluation for different maturity levels
+- **CI/CD Integration** - Automated continuous assessment in build pipelines
+- **Onboarding** - Quick project health snapshot for new team members
 
 ## Technical Architecture
 
 ```
-detective/
+Detective/
 ├── cmd/detective/          # CLI entry point and main logic
 ├── internal/
-│   ├── scanner/           # File system, timeline, and marker detection
-│   ├── git/               # Git repository analysis
-│   ├── inference/         # Evidence → findings logic & investigator notes
-│   └── reporter/          # Report generation and formatting
-└── pkg/models/            # Shared data structures
+│   ├── scanner/            # File system, timeline, marker detection, categorization
+│   ├── git/                # Git repository analysis
+│   ├── detector/           # Project type detection
+│   ├── security/           # Secret and vuln pattern scanning
+│   ├── inference/          # Evidence → findings, scoring, recommendations
+│   └── reporter/           # Report generation and formatting
+└── pkg/models/             # Shared data structures
 ```
 
 ## Cross-Platform Support
